@@ -43,10 +43,11 @@
 
 %define _unitdir /usr/lib/systemd/system
 
-Name:           xcp-ng-release
+Name:           fragata-release
 Version:        8.3.0
-Release:        38
-Summary:        XCP-ng release file
+# Fragata Host: based on xcp-ng-release 8.3.0-38
+Release:        38.1
+Summary:        Fragata Host release file
 Group:          System Environment/Base
 License:        GPLv2
 Requires(post): coreutils, grep
@@ -88,7 +89,10 @@ Obsoletes:      update-XS81E004 control-XS81E004
 Obsoletes:      update-XS81E005 control-XS81E005
 
 # Metadata for the installer to consume
-Provides:       product-brand = XCP-ng
+Provides:       product-brand = Fragata-Host
+# Fragata Host: replaces the release package of XCP-ng, which other packages require
+Provides:       xcp-ng-release = %{version}-%{release}
+Obsoletes:      xcp-ng-release < %{version}-%{release}
 Provides:       product-version = %{PRODUCT_VERSION}
 Provides:       product-build = 0x
 Provides:       platform-name = XCP
@@ -101,7 +105,7 @@ BuildRequires:  systemd branding-xcp-ng python3-devel
 BuildRequires:  python2-rpm-macros
 BuildRequires:  python2
 BuildRequires:  python3-rpm-macros
-URL:            https://github.com/xcp-ng/xcp-ng-release
+URL:            https://github.com/6a8i/fragata-release
 # Before the tag of the final release, archives are exported this way from the source repository:
 # export VER=8.3.0; git archive --format tgz master . --prefix xcp-ng-release-$VER/ -o /path/to/SOURCES/xcp-ng-release-$VER.tar.gz
 Source0:        https://github.com/xcp-ng/xcp-ng-release/archive/v%{version}/xcp-ng-release-%{version}.tar.gz
@@ -112,23 +116,31 @@ Patch1002: 0002-Sync-vm.slice-with-xenserver-release-v8.4.0-12.tar.g.patch
 Patch1003: 0003-Sync-systemd-presets-with-xenserver-release-v8.4.0-1.patch
 Patch1004: 0004-fix-prompt-s-c-e-p-xcp-ng-prompt.sh-Fix-prompt-on-te.patch
 Patch1005: 0005-s-c-e-profile.d-history.sh-Add-timestamps-to-history.patch
-Patch1006: 0006-fix-prompt-s-c-e-p-xcp-ng-prompt.sh-Align-to-RPM-pat.patch
+
+# Fragata Host: its update channel, signing key and brand
+Source10:       fragata.repo
+Source11:       fragata-branding
+Source12:       RPM-GPG-KEY-fragata
 
 %description
-XCP-ng release files
+Fragata Host release files
 
 %package        presets
-Summary:        XCP-ng presets file
+Summary:        Fragata Host presets file
 Group:          System Environment/Base
 Provides:       xs-presets = 1.4
+Provides:       xcp-ng-release-presets = %{version}-%{release}
+Obsoletes:      xcp-ng-release-presets < %{version}-%{release}
 Requires(posttrans): systemd
 
 %description    presets
-XCP-ng presets file.
+Fragata Host presets file.
 
 %package        config
-Summary:        XCP-ng configuration
+Summary:        Fragata Host configuration
 Group:          System Environment/Base
+Provides:       xcp-ng-release-config = %{version}-%{release}
+Obsoletes:      xcp-ng-release-config < %{version}-%{release}
 Requires:       grep sed coreutils patch systemd
 # XCP-ng: requires rsyslog to be installed, in %%post,
 # (would have to be fixed in xenserver-config too)
@@ -149,11 +161,17 @@ Requires(postun): systemd xs-presets >= 1.4
 Requires(post): sed
 
 %description    config
-Additional utilities and configuration for XCP-ng.
+Additional utilities and configuration for Fragata Host.
 
 
 %prep
-%autosetup -p1 -n %{name}-%{version}
+%autosetup -p1 -n xcp-ng-release-%{version}
+
+# Fragata Host: own update channel and signing key, the repositories and key of XCP-ng are left out
+cp %{SOURCE10} fragata.repo
+rm -f xcp-ng.repo src/common/etc/pki/rpm-gpg/RPM-GPG-KEY-xcpng
+cp %{SOURCE12} src/common/etc/pki/rpm-gpg/
+sed -i -e 's|^HOME_URL=.*|HOME_URL="https://github.com/6a8i/fragata-host"|' -e 's|^BUG_REPORT_URL=.*|BUG_REPORT_URL="https://github.com/6a8i/fragata-host/issues"|' src/xenserver/etc/os-release
 
 # XCP-ng: copy LICENSES from branding package
 cp %{_usrsrc}/branding/LICENSES .
@@ -163,16 +181,16 @@ cp %{_usrsrc}/branding/LICENSES .
 %install
 rm -rf %{buildroot}
 
-%{_usrsrc}/branding/brand-directory.py /usr/src/branding/branding src/common %{buildroot}
-%{_usrsrc}/branding/brand-directory.py /usr/src/branding/branding src/xenserver %{buildroot}
+%{_usrsrc}/branding/brand-directory.py %{SOURCE11} src/common %{buildroot}
+%{_usrsrc}/branding/brand-directory.py %{SOURCE11} src/xenserver %{buildroot}
 
 %if %{with build_py2}
 install -d -m 755 %{buildroot}%{python2_sitelib}/xcp
-%{_usrsrc}/branding/branding-compile.py --format=python > %{buildroot}%{python2_sitelib}/xcp/branding.py
+%{_usrsrc}/branding/branding-compile.py %{SOURCE11} --format=python > %{buildroot}%{python2_sitelib}/xcp/branding.py
 %endif
 
 install -d -m 755 %{buildroot}%{python3_sitelib}/xcp
-%{_usrsrc}/branding/branding-compile.py --format=python > %{buildroot}%{python3_sitelib}/xcp/branding.py
+%{_usrsrc}/branding/branding-compile.py %{SOURCE11} --format=python > %{buildroot}%{python3_sitelib}/xcp/branding.py
 
 install -m 644 %{_usrsrc}/branding/EULA %{buildroot}/
 
@@ -192,8 +210,8 @@ install -m 644 CentOS-Sources.repo %{buildroot}%{_sysconfdir}/yum.repos.d
 # XCP-ng: add epel and xcp-ng repos
 # install epel repos (disabled by default)
 install -m 644 epel.repo %{buildroot}%{_sysconfdir}/yum.repos.d
-# install the xcp-ng repo
-install -m 644 xcp-ng.repo %{buildroot}%{_sysconfdir}/yum.repos.d
+# install the Fragata Host repo
+install -m 644 fragata.repo %{buildroot}%{_sysconfdir}/yum.repos.d
 
 # set up the dist tag macros
 install -d -m 755 %{buildroot}%{_sysconfdir}/rpm
@@ -559,7 +577,7 @@ if [ -x /sbin/depmod ]; then /sbin/depmod -a; fi
 systemctl preset-all --preset-mode=enable-only || :
 
 %files
-%doc xcp-ng.repo LICENSES
+%doc fragata.repo LICENSES
 %defattr(0644,root,root,0755)
 %{_sysconfdir}/redhat-release
 %{_sysconfdir}/system-release
@@ -618,6 +636,10 @@ systemctl preset-all --preset-mode=enable-only || :
 
 # Keep this changelog through future updates
 %changelog
+* Mon Nov 02 2026 The Fragata project - 8.3.0-38.1
+- Fragata Host: brand, update channel (fragata.repo) and package signing key
+- Replace xcp-ng-release, xcp-ng-release-presets and xcp-ng-release-config
+
 * Tue Jul 07 2026 Yann Dirson <yann.dirson@vates.tech> - 8.3.0-38
 - Rebuild for updated branding-xcp-ng (copyright 2026)
 
