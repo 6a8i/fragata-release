@@ -46,7 +46,7 @@
 Name:           fragata-release
 Version:        8.3.0
 # Fragata Host: based on xcp-ng-release 8.3.0-38
-Release:        38.1
+Release:        38.4
 Summary:        Fragata Host release file
 Group:          System Environment/Base
 License:        GPLv2
@@ -121,6 +121,7 @@ Patch1005: 0005-s-c-e-profile.d-history.sh-Add-timestamps-to-history.patch
 Source10:       fragata.repo
 Source11:       fragata-branding
 Source12:       RPM-GPG-KEY-fragata
+Source13:       fragata-motd
 
 %description
 Fragata Host release files
@@ -172,6 +173,11 @@ cp %{SOURCE10} fragata.repo
 rm -f xcp-ng.repo src/common/etc/pki/rpm-gpg/RPM-GPG-KEY-xcpng
 cp %{SOURCE12} src/common/etc/pki/rpm-gpg/
 sed -i -e 's|^HOME_URL=.*|HOME_URL="https://github.com/6a8i/fragata-host"|' -e 's|^BUG_REPORT_URL=.*|BUG_REPORT_URL="https://github.com/6a8i/fragata-host/issues"|' src/xenserver/etc/os-release
+# console welcome message: the hosts are managed with Fragata; the brand already says "host"
+sed -i -e 's|please use Xen Orchestra\.|please use Fragata.|' -e 's|You can install Xen Orchestra from https://xen-orchestra.com\.|You can install Fragata from https://github.com/6a8i/fragata-orchestrator.|' -e 's|HOSTTYPE="${PRODUCT_BRAND} host"|HOSTTYPE="${PRODUCT_BRAND}"|' src/common/sbin/update-issue
+grep -q 'install Fragata from' src/common/sbin/update-issue
+# message of the day: no vendor technical support
+cp %{SOURCE13} src/xenserver/etc/motd.xs
 
 # XCP-ng: copy LICENSES from branding package
 cp %{_usrsrc}/branding/LICENSES .
@@ -636,6 +642,10 @@ systemctl preset-all --preset-mode=enable-only || :
 
 # Keep this changelog through future updates
 %changelog
+* Tue Nov 03 2026 The Fragata project - 8.3.0-38.4
+- Console welcome message: manage the host with Fragata
+- Message of the day without vendor technical support
+
 * Mon Nov 02 2026 The Fragata project - 8.3.0-38.1
 - Fragata Host: brand, update channel (fragata.repo) and package signing key
 - Replace xcp-ng-release, xcp-ng-release-presets and xcp-ng-release-config

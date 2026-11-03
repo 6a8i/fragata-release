@@ -1,0 +1,9 @@
+
+The dom0 of @PRODUCT_BRAND@ is tuned for performance and reliability.
+
+Configuration changes which are not documented may not have been tested, and
+may not persist after a system update or upgrade.
+
+Documentation and support: https://github.com/6a8i/fragata-host
+
+Type "xsconsole" for access to the management console.
