@@ -1,0 +1,36 @@
+name: Build
+
+# builds the RPMs of the package in the XCP-ng 8.3 build environment, the one of the Fragata Host channel
+on:
+  push:
+  pull_request:
+
+jobs:
+  rpm:
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/xcp-ng/xcp-ng-build-env:8.3
+      # the checkout writes to the workspace of the runner
+      options: --user root
+    steps:
+      # https://github.com/actions/checkout
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Build
+        run: |
+          mkdir -p ~/rpmbuild/SPECS ~/rpmbuild/SOURCES
+          cp SPECS/*.spec ~/rpmbuild/SPECS/
+          cp SOURCES/* ~/rpmbuild/SOURCES/
+          spec=$(ls ~/rpmbuild/SPECS/*.spec)
+          yum-builddep -q -y "$spec"
+          rpmbuild -ba "$spec"
+          mkdir -p out && cp ~/rpmbuild/RPMS/*/*.rpm ~/rpmbuild/SRPMS/*.rpm out/
+          ls -l out
+
+      # https://github.com/actions/upload-artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpms
+          path: out/*.rpm
