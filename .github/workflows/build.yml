@@ -8,25 +8,25 @@ on:
 jobs:
   rpm:
     runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/xcp-ng/xcp-ng-build-env:8.3
-      # the checkout writes to the workspace of the runner
-      options: --user root
     steps:
       # https://github.com/actions/checkout
       - uses: actions/checkout@v4
         with:
           lfs: true
 
+      # the actions run on the runner: their Node needs a newer glibc than the EL7 of the build environment
       - name: Build
         run: |
-          mkdir -p ~/rpmbuild/SPECS ~/rpmbuild/SOURCES
-          cp SPECS/*.spec ~/rpmbuild/SPECS/
-          cp SOURCES/* ~/rpmbuild/SOURCES/
-          spec=$(ls ~/rpmbuild/SPECS/*.spec)
-          yum-builddep -q -y "$spec"
-          rpmbuild -ba "$spec"
-          mkdir -p out && cp ~/rpmbuild/RPMS/*/*.rpm ~/rpmbuild/SRPMS/*.rpm out/
+          mkdir -p out
+          docker run --rm --user root -v "$PWD:/src" ghcr.io/xcp-ng/xcp-ng-build-env:8.3 sh -ec '
+            mkdir -p ~/rpmbuild/SPECS ~/rpmbuild/SOURCES
+            cp /src/SPECS/*.spec ~/rpmbuild/SPECS/
+            cp /src/SOURCES/* ~/rpmbuild/SOURCES/
+            spec=$(ls ~/rpmbuild/SPECS/*.spec)
+            yum-builddep -q -y "$spec"
+            rpmbuild -ba "$spec"
+            cp ~/rpmbuild/RPMS/*/*.rpm ~/rpmbuild/SRPMS/*.rpm /src/out/
+          '
           ls -l out
 
       # https://github.com/actions/upload-artifact
