@@ -46,7 +46,7 @@
 Name:           fragata-release
 Version:        8.3.0
 # Fragata Host: based on xcp-ng-release 8.3.0-38
-Release:        38.4
+Release:        38.5
 Summary:        Fragata Host release file
 Group:          System Environment/Base
 License:        GPLv2
@@ -252,6 +252,20 @@ ln -s /dev/null %{buildroot}%{_sysconfdir}/systemd/system/autovt@tty2.service
 # coreutils, since they both require each other: no guaranteed order
 # XCP-ng 8.2: CH 8.2 switched to posttrans too. I'm keeping my previous comment to document why.
 /usr/bin/uname -m | grep -q 'x86_64'  && echo 'centos' >/etc/yum/vars/contentdir || echo 'altarch' > /etc/yum/vars/contentdir
+# Fragata Host: the metadata of the fragata repositories are signed (repo_gpgcheck) and yum only imports their key
+# after a confirmation, which the hosts and the orchestrator never give: the key is imported as yum would, in the
+# keyring of each repository, ultimately trusted
+key=/etc/pki/rpm-gpg/RPM-GPG-KEY-fragata
+fpr=$(gpg2 --with-colons --with-fingerprint "$key" 2>/dev/null | awk -F: '/^fpr/ {print $10; exit}')
+for releasedir in /var/lib/yum/repos/x86_64/7 /var/lib/yum/repos/x86_64/[0-9]*; do
+    for repo in fragata fragata-testing; do
+        for gpgdir in "$releasedir/$repo/gpgdir" "$releasedir/$repo/gpgdir-ro"; do
+            mkdir -p "$gpgdir" && chmod 0755 "$gpgdir"
+            gpg2 --homedir "$gpgdir" --batch --quiet --import "$key" 2>/dev/null || :
+            echo "$fpr:6:" | gpg2 --homedir "$gpgdir" --batch --quiet --import-ownertrust 2>/dev/null || :
+        done
+    done
+done
 
 %clean
 rm -rf %{buildroot}
@@ -642,6 +656,10 @@ systemctl preset-all --preset-mode=enable-only || :
 
 # Keep this changelog through future updates
 %changelog
+* Tue Nov 03 2026 The Fragata project - 8.3.0-38.5
+- Import the key of the fragata repositories metadata for yum: fresh hosts
+  query the channel without a confirmation
+
 * Tue Nov 03 2026 The Fragata project - 8.3.0-38.4
 - Console welcome message: manage the host with Fragata
 - Message of the day without vendor technical support
